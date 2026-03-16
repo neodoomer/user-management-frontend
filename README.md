@@ -1,36 +1,132 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# User Management Frontend
 
-## Getting Started
+A Next.js frontend for the [User Management Microservice](https://github.com/neodoomer/user-management-microservice), featuring authentication flows and an admin dashboard.
 
-First, run the development server:
+## Tech Stack
+
+- **Next.js 16** (App Router, Server Components, Route Handlers)
+- **TypeScript**
+- **Tailwind CSS** with [shadcn/ui](https://ui.shadcn.com/) components
+- **Sonner** for toast notifications
+
+## Features
+
+- **Sign In** / **Sign Up** with client-side validation
+- **Forgot Password** / **Reset Password** flow
+- **Admin Dashboard** with paginated users table
+- **Route protection** via middleware (unauthenticated users redirected to sign-in)
+- **HttpOnly JWT cookies** managed by server-side Route Handlers (token never exposed to client JS)
+- **Standalone Docker build** for production deployment
+
+## Pages
+
+| Route | Auth | Description |
+|-------|------|-------------|
+| `/signin` | Public | Sign in form |
+| `/signup` | Public | Registration form |
+| `/forgot-password` | Public | Request password reset |
+| `/reset-password` | Public | Reset password with token |
+| `/dashboard` | Protected | Users table (admin: full list, user: access denied) |
+
+## Quick Start
+
+### With Docker (recommended)
+
+The frontend is included in the backend's `docker-compose.yml`. Clone both repos as siblings:
+
+```
+Go Projects/
+├── user-management-microservice/
+└── user-management-frontend/       # this repo
+```
+
+Then from the **backend** directory:
+
+```bash
+docker compose up --build -d
+```
+
+Open **http://localhost** — HAProxy routes everything through port 80.
+
+### Local development
+
+```bash
+npm install
+```
+
+Create `.env.local`:
+
+```
+API_URL=http://localhost
+```
+
+Start the dev server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open **http://localhost:3000**.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+> The Go backend must be running (either via Docker or locally on port 8080 behind HAProxy on port 80).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Architecture
 
-## Learn More
+```
+Browser
+  │
+  ├── /signin, /signup, /dashboard ... (React pages)
+  │
+  └── /api/auth/* (Next.js Route Handlers)
+        │
+        └── Go API at $API_URL/api/v1/*
+```
 
-To learn more about Next.js, take a look at the following resources:
+- **Client components** (sign-in/sign-up forms) call Next.js Route Handlers at `/api/auth/*`.
+- **Route Handlers** proxy requests to the Go backend, set/clear HttpOnly JWT cookies.
+- **Server Components** (dashboard) fetch data directly from the Go API using the JWT cookie.
+- **Middleware** checks for the `token` cookie and redirects unauthenticated users.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+app/
+  (auth)/
+    signin/page.tsx             # Sign in form
+    signup/page.tsx             # Sign up form
+    forgot-password/page.tsx    # Forgot password form
+    reset-password/page.tsx     # Reset password form
+    layout.tsx                  # Centered card layout for auth pages
+  api/auth/
+    signin/route.ts             # Proxy sign-in, set cookie
+    signup/route.ts             # Proxy sign-up, set cookie
+    signout/route.ts            # Clear cookie
+    forgot-password/route.ts    # Proxy forgot password
+    reset-password/route.ts     # Proxy reset password
+  dashboard/
+    page.tsx                    # Users table (server component)
+    layout.tsx                  # Dashboard layout with header
+  layout.tsx                    # Root layout (Geist font, Sonner)
+  page.tsx                      # Redirects to /signin
+components/
+  ui/                           # shadcn/ui components
+  users-table.tsx               # Users data table
+  pagination.tsx                # Pagination controls
+  sign-out-button.tsx           # Sign out button
+lib/
+  api-client.ts                 # Typed fetch wrapper + ApiError
+  auth.ts                       # Server-side JWT cookie helpers
+  types.ts                      # TypeScript interfaces
+middleware.ts                   # Route protection middleware
+```
 
-## Deploy on Vercel
+## Environment Variables
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `API_URL` | `http://localhost` | Backend API base URL (server-side) |
+| `COOKIE_SECURE` | `false` | Set to `true` when serving over HTTPS |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## License
+
+MIT
